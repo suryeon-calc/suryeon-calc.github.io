@@ -248,7 +248,7 @@ function result(){
   const ok=M.extraNeed!=null&&M.extraHave>=M.extraNeed;
   const verdict=M.extraNeed==null?`비교 나이 전에 수련이 끝나지 않아요. 비교 나이를 늘려보세요.`:
     ok?`${S.dept} 평균이면 매달 <b class="num">${man(M.extraHave)}만원</b> 더 모을 수 있어서 <b class="num">${c.age.toFixed(1)}살</b>에 넘어서요.`:
-       `${S.dept} 평균이면 매달 <b class="num">${man(Math.max(0,M.extraHave))}만원</b>${M.extraHave<0?" 덜":" 더"} 모아서 ${S.end}살까지 못 넘어서요. 전문의 연소득이 <b class="num">${incTxt(incomeFor(M.need))}원</b> 이상이어야 해요.`;
+       `${S.dept} 평균이면 매달 <b class="num">${man(Math.abs(M.extraHave))}만원</b>${M.extraHave<0?" 덜":" 더"} 모아서 ${S.end}살까지 못 넘어서요. 전문의 연소득이 <b class="num">${incTxt(incomeFor(M.need))}원</b> 이상이어야 해요.`;
   return `<div class="top"><span class="brand">수련 기회비용 계산기</span><button class="back" id="restart">처음부터</button></div>
   <div class="res">
     <div class="lab">수련의 기회비용</div>
