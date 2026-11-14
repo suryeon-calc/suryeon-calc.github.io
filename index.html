@@ -311,7 +311,7 @@ async function saveImage(btn){
     await document.fonts.ready;
     const M=model(), c=M.cross, yrs=c?Math.round(M.catchY):null;
     const css=getComputedStyle(document.documentElement), col=k=>css.getPropertyValue(k).trim();
-    const W=1080,H=1350,P=80,F='"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif';
+    const W=1080,H=1440,P=80,F='"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif';
     const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d");
     x.fillStyle=col("--bg");x.fillRect(0,0,W,H);x.textBaseline="alphabetic";
     let y=P+30;
@@ -337,7 +337,7 @@ async function saveImage(btn){
     y+=40; const cw=W-2*P, ch=cw*230/400; x.drawImage(img,P,y,cw,ch);
     x.fillStyle=col("--gp");x.fillRect(P,y+ch+34,30,4);x.fillStyle=col("--mute");x.font=`500 26px ${F}`;x.fillText("GP",P+40,y+ch+44);
     x.fillStyle=col("--sp");x.fillRect(P+110,y+ch+34,30,4);x.fillStyle=col("--mute");x.fillText("전문의",P+150,y+ch+44);
-    x.fillStyle=col("--faint");x.font=`500 26px ${F}`;x.textAlign="right";x.fillText("suryeon-calc.github.io",W-P,H-P+20);x.textAlign="left";
+    x.fillStyle=col("--faint");x.font=`500 26px ${F}`;x.textAlign="right";x.fillText("suryeon-calc.github.io",W-P,H-P+10);x.textAlign="left";
     const blob=await new Promise(r=>cv.toBlob(r,"image/png"));
     const file=new File([blob],"수련기회비용.png",{type:"image/png"});
     if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file]});btn.textContent=label;return;}catch(e){if(e.name==="AbortError"){btn.textContent=label;return;}}}
