@@ -107,6 +107,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sp);outline-off
 .res{padding:28px 0 8px}
 .lab{font-size:14px;color:var(--mute);font-weight:500}
 .big{font-size:48px;line-height:1.1;font-weight:800;letter-spacing:-0.035em;margin:6px 0 10px}
+.big .pay{font-size:22px;font-weight:600;letter-spacing:-0.02em;color:var(--mute)}
+.big .pay b{color:var(--ink);font-weight:800}
 .big small{font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-left:2px}
 .say{margin:0;font-size:15px;color:var(--ink)}
 .say .m{color:var(--mute)}
@@ -236,9 +238,9 @@ function trainLabel(){const p=[];if(S.intern)p.push("인턴 "+S.intern);p.push("
 
 function result(){
   const M=model(), c=M.cross, yrs=c?Math.round(M.catchY):null;
-  const head=c?`${eok(M.cost)}<small>억</small> + ${yrs}<small>년</small>`:`${eok(M.cost)}<small>억</small>`;
-  const say=c?`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b>을 먼저 모으고, 전문의가 된 뒤에도 따라잡기까지 <b class="num">${yrs}년</b>이 더 걸려요.`
-             :`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b>을 먼저 모으고, 그 차이를 끝내 따라잡지 못해요.`;
+  const head=`${eok(M.cost)}<small>억</small><span class="pay">${c?`, 회수까지 <b>${yrs}년</b>`:`, 회수 못 함`}</span>`;
+  const say=c?`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b>을 먼저 모아요. 전문의가 되면 매달 더 모아서 이 차이를 <b class="num">${yrs}년</b> 만에 메워요.`
+             :`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b>을 먼저 모아요. 전문의가 된 뒤에도 이 차이를 메우지 못해요.`;
   const why=S.mSP<=S.mGP?`전문의 월 저축(${man(S.mSP)}만)이 GP(${man(S.mGP)}만)보다 많지 않아서 차이가 줄어들지 않아요.`:`${MAXAGE}살까지 계산해도 따라잡지 못해요.`;
   return `<div class="top"><span class="brand">수련 기회비용 계산기</span><button class="back" id="restart">처음부터</button></div>
   <div class="res">
