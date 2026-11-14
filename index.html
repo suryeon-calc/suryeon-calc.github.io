@@ -261,7 +261,7 @@ function result(){
   <div class="hr" style="margin:20px 0 0"></div>
   <details id="tbl"><summary>나이별로 보기${ic.down}</summary><div class="tbl">${table(M)}</div></details>
   <p class="note">계산 방법: 기본 월 저축은 평균 연소득에서 종합소득세를 단순 적용해 뺀 뒤 절반을 모은다고 본 값이에요. 수련·군 복무 중 저축 0원, 매달 말 적립, 연 수익률을 월 복리로 환산했어요. 물가는 반영하지 않은 명목 금액이고, 평균값이라 실제와 다를 수 있어요. 투자 조언이 아닙니다.</p>
-  <div class="foot"><button class="primary" id="share">결과 링크 복사</button></div>`;
+  <div class="foot"><button class="primary" id="save">이미지로 저장</button></div>`;
 }
 
 function chart(M){
@@ -298,13 +298,56 @@ function table(M){
 function bindResult(){
   document.querySelectorAll("#app [data-k]").forEach(b=>b.onclick=()=>{S[b.dataset.k]=+b.dataset.v;keep();});
   document.getElementById("restart").onclick=()=>{view="q";step=0;render();scrollTo(0,0);};
-  document.getElementById("share").onclick=async e=>{const u=location.href.split("#")[0]+"#"+enc();
-    try{await navigator.clipboard.writeText(u);e.target.textContent="복사했어요";}catch{e.target.textContent="복사하지 못했어요";}
-    setTimeout(()=>e.target.textContent="결과 링크 복사",1600);};
+  document.getElementById("save").onclick=e=>saveImage(e.currentTarget);
 }
 function keep(){const y=scrollY,open=document.getElementById("tbl").open;render();document.getElementById("tbl").open=open;scrollTo(0,y);}
 
-// ---------- 링크 공유 ----------
+
+// ---------- 결과 이미지 저장 ----------
+function wrapLines(ctx,text,maxW){const out=[];let line="";for(const ch of text){const t=line+ch;if(ctx.measureText(t).width>maxW&&line){out.push(line);line=ch.trimStart();}else line=t;}if(line)out.push(line);return out;}
+async function saveImage(btn){
+  const label=btn.textContent; btn.textContent="이미지 만드는 중…";
+  try{
+    await document.fonts.ready;
+    const M=model(), c=M.cross, yrs=c?Math.round(M.catchY):null;
+    const css=getComputedStyle(document.documentElement), col=k=>css.getPropertyValue(k).trim();
+    const W=1080,H=1350,P=80,F='"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif';
+    const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d");
+    x.fillStyle=col("--bg");x.fillRect(0,0,W,H);x.textBaseline="alphabetic";
+    let y=P+30;
+    x.fillStyle=col("--ink");x.font=`700 34px ${F}`;x.fillText("수련 기회비용 계산기",P,y);
+    x.fillStyle=col("--faint");x.font=`500 28px ${F}`;x.textAlign="right";x.fillText(`${S.dept} · ${S.age}살 · 수익률 ${S.r}%`,W-P,y);x.textAlign="left";
+    y+=90; x.fillStyle=col("--mute");x.font=`500 32px ${F}`;x.fillText("수련의 기회비용",P,y);
+    y+=110; x.fillStyle=col("--ink");x.font=`800 120px ${F}`;const a=eok(M.cost);x.fillText(a,P,y);let w=x.measureText(a).width;
+    x.font=`700 54px ${F}`;x.fillText("억",P+w+6,y);w+=6+x.measureText("억").width;
+    x.fillStyle=col("--mute");x.font=`600 46px ${F}`;const pay=c?", 회수까지 ":", 회수 못 함";x.fillText(pay,P+w+8,y);
+    if(c){const pw=x.measureText(pay).width;x.fillStyle=col("--ink");x.font=`800 46px ${F}`;x.fillText(`${yrs}년`,P+w+8+pw,y);}
+    y+=60; x.fillStyle=col("--ink");x.font=`400 32px ${F}`;
+    const say=c?`수련 ${M.trainY}년 동안 GP가 ${eok(M.cost)}억을 먼저 모아요. 전문의가 되면 매달 더 모아서 이 차이를 ${yrs}년 만에 메워요.`:`수련 ${M.trainY}년 동안 GP가 ${eok(M.cost)}억을 먼저 모아요. 전문의가 된 뒤에도 이 차이를 메우지 못해요.`;
+    for(const l of wrapLines(x,say,W-2*P)){x.fillText(l,P,y);y+=48;}
+    y+=24; x.fillStyle=col("--line");x.fillRect(P,y,W-2*P,2);
+    y+=80; x.fillStyle=col("--mute");x.font=`500 32px ${F}`;x.fillText("전문의가 GP를 앞서는 나이",P,y);
+    y+=100; x.fillStyle=col("--ink");x.font=`800 110px ${F}`;const ag=c?c.age.toFixed(1):"없음";x.fillText(ag,P,y);
+    if(c){const aw=x.measureText(ag).width;x.font=`700 50px ${F}`;x.fillText("살",P+aw+6,y);}
+    y+=56; x.fillStyle=col("--mute");x.font=`400 28px ${F}`;
+    x.fillText(`월 저축 GP ${man(S.mGP)}만 / 전문의 ${man(S.mSP)}만 · 수련 중 저축 0원`,P,y);
+    // 그래프: 화면의 SVG를 색을 채워 넣은 뒤 이미지로
+    let svg=chart(M).replace(/var\((--[\w-]+)\)/g,(_,k)=>col(k)).replace("<svg ",`<svg xmlns="http://www.w3.org/2000/svg" font-family='${F.replace(/"/g,"")}' `);
+    const img=new Image();await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);});
+    y+=40; const cw=W-2*P, ch=cw*230/400; x.drawImage(img,P,y,cw,ch);
+    x.fillStyle=col("--gp");x.fillRect(P,y+ch+34,30,4);x.fillStyle=col("--mute");x.font=`500 26px ${F}`;x.fillText("GP",P+40,y+ch+44);
+    x.fillStyle=col("--sp");x.fillRect(P+110,y+ch+34,30,4);x.fillStyle=col("--mute");x.fillText("전문의",P+150,y+ch+44);
+    x.fillStyle=col("--faint");x.font=`500 26px ${F}`;x.textAlign="right";x.fillText("suryeon-calc.github.io",W-P,H-P+20);x.textAlign="left";
+    const blob=await new Promise(r=>cv.toBlob(r,"image/png"));
+    const file=new File([blob],"수련기회비용.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file]});btn.textContent=label;return;}catch(e){if(e.name==="AbortError"){btn.textContent=label;return;}}}
+    const u=URL.createObjectURL(blob),el=document.createElement("a");el.href=u;el.download="수련기회비용.png";document.body.appendChild(el);el.click();el.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);
+    btn.textContent="저장했어요";
+  }catch(e){btn.textContent="저장하지 못했어요";}
+  setTimeout(()=>btn.textContent=label,1800);
+}
+
+// ---------- 링크로 상태 복원 ----------
 const KEYS=["age","mil","intern","dept","fellow","mGP","mSP","r"];
 const enc=()=>KEYS.map(k=>k+"="+encodeURIComponent(S[k])).join("&");
 function dec(h){const p=new URLSearchParams(h.replace(/^#/,""));
