@@ -167,7 +167,7 @@ const defMonthly=inc=>Math.round((inc-tax(inc))*SAVE/12);
 const deptOf=n=>DEPTS.find(x=>x[0]===n);
 
 // ---------- 상태 ----------
-const S={age:29,mil:0,intern:1,dept:"안과",resid:4,fellow:1,mGP:defMonthly(GP_INCOME),mSP:defMonthly(38918),r:5};
+const S={age:29,mil:0,intern:1,dept:"안과",resid:4,fellow:1,mGP:defMonthly(GP_INCOME),mSP:defMonthly(38918),mTR:100,r:5};
 let step=0, view="q";
 const MAXAGE=90;
 
@@ -176,12 +176,13 @@ function model(){
   const rm=Math.pow(1+S.r/100,1/12)-1;
   const gs=S.mil*12, trainY=S.intern+S.resid+S.fellow, ss=(trainY+S.mil)*12;
   const gp=[0],sp=[0]; let g=0,p=0;
-  for(let m=0;m<months;m++){ g=g*(1+rm)+(m>=gs?S.mGP:0); p=p*(1+rm)+(m>=ss?S.mSP:0); gp.push(g);sp.push(p); }
+  const ms0=(S.intern+S.resid)*12, ms1=ms0+S.mil*12; // 전문의 경로의 군 복무 구간
+  for(let m=0;m<months;m++){ g=g*(1+rm)+(m>=gs?S.mGP:0); p=p*(1+rm)+(m>=ss?S.mSP:(m>=ms0&&m<ms1?0:S.mTR)); gp.push(g);sp.push(p); }
   let cross=null;
   for(let m=ss+1;m<=months;m++){ if(sp[m]>gp[m]){const a=gp[m-1]-sp[m-1],b=gp[m]-sp[m];const f=a/(a-b);
       cross={m:m-1+f,age:S.age+(m-1+f)/12,val:gp[m-1]+(gp[m]-gp[m-1])*f};break;} }
   const show=cross?Math.min(months,Math.max(Math.ceil(cross.m/12)+8,25)*12):Math.min(months,Math.max(65-S.age,25)*12);
-  return {months:show,gs,ss,trainY,gp,sp,cross,cost:gp[Math.min(ss,months)],catchY:cross?(cross.m-ss)/12:null};
+  return {months:show,gs,ss,trainY,gp,sp,cross,cost:gp[Math.min(ss,months)]-sp[Math.min(ss,months)],at65:S.age<65?{g:gp[(65-S.age)*12],p:sp[(65-S.age)*12]}:null,catchY:cross?(cross.m-ss)/12:null};
 }
 const eok=v=>{const e=v/1e4;return Math.abs(e)>=10?e.toFixed(0):e.toFixed(1)};
 const man=v=>Math.round(v).toLocaleString("ko-KR");
@@ -200,9 +201,10 @@ const STEPS=[
  {q:"인턴 1년이 남아 있나요?",h:"수련을 안 받으면 인턴도 안 하니 이 1년도 아낄 수 있어요.",b:()=>opts("intern",[[1,"남아 있어요","수련 경로에 1년 추가"],[0,"이미 마쳤어요",""]])},
  {q:"어느 과를 생각하나요?",h:"레지던트 기간과 평균 소득이 자동으로 들어가요.",b:()=>`<div class="depts" role="radiogroup">${DEPTS.map(([n,,y])=>`<button role="radio" aria-checked="${S.dept===n}" data-k="dept" data-v="${n}">${n}${y===3?`<span>3년</span>`:""}</button>`).join("")}</div>`},
  {q:"펠로우는 몇 년 할 건가요?",h:"전문의 취득 뒤 임상강사 기간이에요.",b:()=>opts("fellow",[[0,"안 해요",""],[1,"1년",""],[2,"2년",""]])},
- {q:"한 달에 얼마씩 모을까요?",h:"평균 소득에서 세금을 빼고 절반을 모은다고 보고 채워 뒀어요. 생각해 둔 금액이 있으면 바꿔주세요. 수련받는 동안 저축액은 0으로 봐요.",b:()=>`
+ {q:"한 달에 얼마씩 모을까요?",h:"평균 소득에서 세금을 빼고 절반을 모은다고 보고 채워 뒀어요. 생각해 둔 금액이 있으면 바꿔주세요. 군 복무 중에는 양쪽 다 0원으로 봐요.",b:()=>`
    <div class="field"><label>수련 안 받으면 (GP)<span class="hint">세후 월 저축</span></label><span class="in"><input class="num" id="mGP" inputmode="numeric" value="${S.mGP}"><span class="u">만원</span></span></div>
    <div class="field"><label>전문의가 되면<span class="hint">${S.dept} · 세후 월 저축</span></label><span class="in"><input class="num" id="mSP" inputmode="numeric" value="${S.mSP}"><span class="u">만원</span></span></div>
+   <div class="field"><label>수련받는 동안<span class="hint">인턴·레지던트·펠로우 · 월 저축</span></label><span class="in"><input class="num" id="mTR" inputmode="numeric" value="${S.mTR}"><span class="u">만원</span></span></div>
    <div class="src">평균 소득 출처: 전문의는 보건의료인력 실태조사(2020년 기준), 일반의는 메디게이트 구인공고 평균(2021년). </div>`},
  {q:"모은 돈은 연 몇 %로 굴러갈까요?",h:"예상 수익률이에요. 잘 모르겠으면 5%로 두세요.",b:()=>segs("r",[[5,"5%"],[7,"7%"],[9,"9%"]])}
 ];
@@ -227,7 +229,7 @@ function bindQ(){
   a.querySelectorAll("[data-age]").forEach(b=>b.onclick=()=>{S.age=clampAge(S.age+ +b.dataset.age);render();});
   const ag=document.getElementById("age");
   if(ag){ag.oninput=()=>{const v=+ag.value.replace(/[^\d]/g,"");if(v)S.age=v;};ag.onblur=()=>{S.age=clampAge(S.age);ag.value=S.age;};}
-  ["mGP","mSP"].forEach(id=>{const e=document.getElementById(id);if(e)e.oninput=()=>{S[id]=+e.value.replace(/[^\d]/g,"")||0;}});
+  ["mGP","mSP","mTR"].forEach(id=>{const e=document.getElementById(id);if(e)e.oninput=()=>{S[id]=+e.value.replace(/[^\d]/g,"")||0;}});
   const go=()=>{S.age=clampAge(S.age);};
   document.getElementById("next").onclick=()=>{go();if(step<STEPS.length-1){step++;render();}else{view="r";render();scrollTo(0,0);}};
   const sk=document.getElementById("skip");if(sk)sk.onclick=()=>{go();view="r";render();scrollTo(0,0);};
@@ -239,8 +241,10 @@ function trainLabel(){const p=[];if(S.intern)p.push("인턴 "+S.intern);p.push("
 function result(){
   const M=model(), c=M.cross, yrs=c?Math.round(M.catchY):null;
   const head=`${eok(M.cost)}<small>억</small><span class="pay">${c?`, 회수까지 <b>${yrs}년</b>`:`, 회수 못 함`}</span>`;
-  const say=c?`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b>을 먼저 모아요. 전문의가 되면 매달 더 모아서 이 차이를 <b class="num">${yrs}년</b> 만에 메워요.`
-             :`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b>을 먼저 모아요. 전문의가 된 뒤에도 이 차이를 메우지 못해요.`;
+  const say=c?`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b> 더 모아요. 전문의가 되면 매달 더 모아서 이 차이를 <b class="num">${yrs}년</b> 만에 메워요.`
+             :`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b> 더 모아요. 전문의가 된 뒤에도 이 차이를 메우지 못해요.`;
+  const d65=M.at65?M.at65.p-M.at65.g:null;
+  const line65=d65==null?"":(d65>=0?`65살에는 전문의가 <b class="num">${eok(d65)}억</b> 앞서요.`:`65살에도 GP가 <b class="num">${eok(-d65)}억</b> 앞서요.`);
   const why=S.mSP<=S.mGP?`전문의 월 저축(${man(S.mSP)}만)이 GP(${man(S.mGP)}만)보다 많지 않아서 차이가 줄어들지 않아요.`:`${MAXAGE}살까지 계산해도 따라잡지 못해요.`;
   return `<div class="top"><span class="brand">수련 기회비용 계산기</span><button class="back" id="restart">처음부터</button></div>
   <div class="res">
@@ -250,8 +254,8 @@ function result(){
     <div class="hr"></div>
     <div class="lab">전문의가 GP를 앞서는 나이</div>
     <div class="big num">${c?c.age.toFixed(1)+"<small>살</small>":"없음"}</div>
-    ${c?`<p class="say">이때부터 전문의가 모은 돈이 GP보다 많아지고, 차이는 계속 벌어져요.</p>`:`<div class="verdict bad">${why}</div>`}
-    <p class="say m" style="margin-top:12px;font-size:14px">월 저축 · GP <b class="num">${man(S.mGP)}만</b> / 전문의(${S.dept}) <b class="num">${man(S.mSP)}만</b> · 수익률 연 ${S.r}%<br>수련받는 동안(군 복무 포함) 저축액은 0으로 봐요.</p>
+    ${c?`<p class="say">이때부터 전문의가 모은 돈이 GP보다 많아지고, 차이는 계속 벌어져요.${line65?" "+line65:""}</p>`:`${line65?`<p class="say">${line65}</p>`:""}<div class="verdict bad">${why}</div>`}
+    <p class="say m" style="margin-top:12px;font-size:14px">월 저축 · GP <b class="num">${man(S.mGP)}만</b> / 전문의(${S.dept}) <b class="num">${man(S.mSP)}만</b> · 수련 중 <b class="num">${man(S.mTR)}만</b> · 수익률 연 ${S.r}%${S.mil?"<br>군 복무 중 저축은 양쪽 다 0원으로 봐요.":""}</p>
   </div>
   <div class="hr"></div>
   <div class="legend"><span><i style="background:var(--gp)"></i>GP</span><span><i style="background:var(--sp)"></i>전문의</span></div>
@@ -260,8 +264,8 @@ function result(){
   <div class="tune"><div class="row"><span>수익률</span>${segs("r",[[5,"5%"],[7,"7%"],[9,"9%"]])}</div></div>
   <div class="hr" style="margin:20px 0 0"></div>
   <details id="tbl"><summary>나이별로 보기${ic.down}</summary><div class="tbl">${table(M)}</div></details>
-  <p class="note">계산 방법: 기본 월 저축은 평균 연소득에서 종합소득세를 단순 적용해 뺀 뒤 절반을 모은다고 본 값이에요. 수련·군 복무 중 저축 0원, 매달 말 적립, 연 수익률을 월 복리로 환산했어요. 물가는 반영하지 않은 명목 금액이고, 평균값이라 실제와 다를 수 있어요. 투자 조언이 아닙니다.</p>
-  <div class="foot"><button class="primary" id="save">이미지로 저장</button></div>`;
+  <p class="note">계산 방법: 기본 월 저축은 평균 연소득에서 종합소득세를 단순 적용해 뺀 뒤 절반을 모은다고 본 값이에요. 수련 중 저축은 입력한 금액(기본 100만원), 군 복무 중 저축 0원, 매달 말 적립, 연 수익률을 월 복리로 환산했어요. 물가는 반영하지 않은 명목 금액이고, 평균값이라 실제와 다를 수 있어요. 투자 조언이 아닙니다.</p>
+  <div class="foot"><button class="primary" id="save">이미지로 저장</button><button class="skip" id="link">링크 복사</button></div>`;
 }
 
 function chart(M){
@@ -299,6 +303,9 @@ function bindResult(){
   document.querySelectorAll("#app [data-k]").forEach(b=>b.onclick=()=>{S[b.dataset.k]=+b.dataset.v;keep();});
   document.getElementById("restart").onclick=()=>{view="q";step=0;render();scrollTo(0,0);};
   document.getElementById("save").onclick=e=>saveImage(e.currentTarget);
+  document.getElementById("link").onclick=async e=>{const b=e.currentTarget,u=location.href.split("#")[0]+"#"+enc();
+    try{await navigator.clipboard.writeText(u);b.textContent="링크를 복사했어요";}catch{b.textContent="복사하지 못했어요";}
+    setTimeout(()=>b.textContent="링크 복사",1600);};
 }
 function keep(){const y=scrollY,open=document.getElementById("tbl").open;render();document.getElementById("tbl").open=open;scrollTo(0,y);}
 
@@ -311,7 +318,7 @@ async function saveImage(btn){
     await document.fonts.ready;
     const M=model(), c=M.cross, yrs=c?Math.round(M.catchY):null;
     const css=getComputedStyle(document.documentElement), col=k=>css.getPropertyValue(k).trim();
-    const W=1080,H=1440,P=80,F='"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif';
+    const W=1080,H=1500,P=80,F='"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif';
     const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d");
     x.fillStyle=col("--bg");x.fillRect(0,0,W,H);x.textBaseline="alphabetic";
     let y=P+30;
@@ -323,14 +330,16 @@ async function saveImage(btn){
     x.fillStyle=col("--mute");x.font=`600 46px ${F}`;const pay=c?", 회수까지 ":", 회수 못 함";x.fillText(pay,P+w+8,y);
     if(c){const pw=x.measureText(pay).width;x.fillStyle=col("--ink");x.font=`800 46px ${F}`;x.fillText(`${yrs}년`,P+w+8+pw,y);}
     y+=60; x.fillStyle=col("--ink");x.font=`400 32px ${F}`;
-    const say=c?`수련 ${M.trainY}년 동안 GP가 ${eok(M.cost)}억을 먼저 모아요. 전문의가 되면 매달 더 모아서 이 차이를 ${yrs}년 만에 메워요.`:`수련 ${M.trainY}년 동안 GP가 ${eok(M.cost)}억을 먼저 모아요. 전문의가 된 뒤에도 이 차이를 메우지 못해요.`;
+    const say=c?`수련 ${M.trainY}년 동안 GP가 ${eok(M.cost)}억 더 모아요. 전문의가 되면 매달 더 모아서 이 차이를 ${yrs}년 만에 메워요.`:`수련 ${M.trainY}년 동안 GP가 ${eok(M.cost)}억 더 모아요. 전문의가 된 뒤에도 이 차이를 메우지 못해요.`;
     for(const l of wrapLines(x,say,W-2*P)){x.fillText(l,P,y);y+=48;}
     y+=24; x.fillStyle=col("--line");x.fillRect(P,y,W-2*P,2);
     y+=80; x.fillStyle=col("--mute");x.font=`500 32px ${F}`;x.fillText("전문의가 GP를 앞서는 나이",P,y);
     y+=100; x.fillStyle=col("--ink");x.font=`800 110px ${F}`;const ag=c?c.age.toFixed(1):"없음";x.fillText(ag,P,y);
     if(c){const aw=x.measureText(ag).width;x.font=`700 50px ${F}`;x.fillText("살",P+aw+6,y);}
     y+=56; x.fillStyle=col("--mute");x.font=`400 28px ${F}`;
-    x.fillText(`월 저축 GP ${man(S.mGP)}만 / 전문의 ${man(S.mSP)}만 · 수련 중 저축 0원`,P,y);
+    const d65=M.at65?M.at65.p-M.at65.g:null;
+    if(d65!=null){x.fillStyle=col("--ink");x.font=`500 32px ${F}`;x.fillText(d65>=0?`65살에는 전문의가 ${eok(d65)}억 앞서요.`:`65살에도 GP가 ${eok(-d65)}억 앞서요.`,P,y);y+=50;x.fillStyle=col("--mute");x.font=`400 28px ${F}`;}
+    x.fillText(`월 저축 GP ${man(S.mGP)}만 / 전문의 ${man(S.mSP)}만 / 수련 중 ${man(S.mTR)}만`,P,y);
     // 그래프: 화면의 SVG를 색을 채워 넣은 뒤 이미지로
     let svg=chart(M).replace(/var\((--[\w-]+)\)/g,(_,k)=>col(k)).replace("<svg ",`<svg xmlns="http://www.w3.org/2000/svg" font-family='${F.replace(/"/g,"")}' `);
     const img=new Image();await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);});
@@ -348,7 +357,7 @@ async function saveImage(btn){
 }
 
 // ---------- 링크로 상태 복원 ----------
-const KEYS=["age","mil","intern","dept","fellow","mGP","mSP","r"];
+const KEYS=["age","mil","intern","dept","fellow","mGP","mSP","mTR","r"];
 const enc=()=>KEYS.map(k=>k+"="+encodeURIComponent(S[k])).join("&");
 function dec(h){const p=new URLSearchParams(h.replace(/^#/,""));
   KEYS.forEach(k=>{if(p.has(k)){const v=p.get(k);S[k]=k==="dept"?v:+v;}});
