@@ -141,7 +141,25 @@ tr.x td{font-weight:700}
 .pos{color:var(--gain)}.neg{color:var(--loss)}
 .note{font-size:12px;color:var(--faint);line-height:1.6;margin:16px 0}
 
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* 누르는 맛: 상태가 바뀔 때만 짧게 */
+button{-webkit-tap-highlight-color:transparent}
+.primary,.seg button,.depts button,.stepper button{transition:transform .09s ease,filter .15s ease}
+.primary:active,.seg button:active,.depts button:active,.stepper button:active{transform:scale(.96)}
+.primary:active{filter:brightness(1.3)}
+.opt{transition:background-color .15s ease}.opt:active{background:var(--sel)}
+.pop .ck{animation:pop .26s cubic-bezier(.3,1.7,.5,1)}
+.depts .pop,.seg .pop,.stepper .v.pop{animation:bump .26s cubic-bezier(.3,1.7,.5,1)}
+@keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bump{from{transform:scale(.9)}to{transform:scale(1)}}
+.stage.fwd{animation:inR .22s ease-out}.stage.back{animation:inL .22s ease-out}
+@keyframes inR{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes inL{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:none}}
+.reveal .res{animation:up .32s ease-out}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.draw .ln{stroke-dasharray:1;stroke-dashoffset:1;animation:dash .9s .15s ease-out forwards}
+.draw .xmark{opacity:0;animation:fade .25s .95s ease-out forwards}
+@keyframes dash{to{stroke-dashoffset:0}}@keyframes fade{to{opacity:1}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.draw .ln{stroke-dashoffset:0}.draw .xmark{opacity:1}}
 </style>
 </head>
 <body>
@@ -192,14 +210,17 @@ const ic={
  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
  ck:'<svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>'};
-const opts=(key,list)=>`<div class="list" role="radiogroup">${list.map(([v,t,s])=>`<button class="opt" role="radio" aria-checked="${S[key]==v}" data-k="${key}" data-v="${v}"><span class="l"><span class="t">${t}</span>${s?`<span class="s">${s}</span>`:""}</span>${ic.ck}</button>`).join("")}</div>`;
-const segs=(key,list)=>`<div class="seg" role="radiogroup">${list.map(([v,t])=>`<button role="radio" aria-checked="${S[key]==v}" data-k="${key}" data-v="${v}">${t}</button>`).join("")}</div>`;
+let ENTER="",PICK=null,REVEAL=false;
+const tap=()=>{try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}};
+const pk=(k,v)=>PICK===k+"="+v?" pop":"";
+const opts=(key,list)=>`<div class="list" role="radiogroup">${list.map(([v,t,s])=>`<button class="opt${pk(key,v)}" role="radio" aria-checked="${S[key]==v}" data-k="${key}" data-v="${v}"><span class="l"><span class="t">${t}</span>${s?`<span class="s">${s}</span>`:""}</span>${ic.ck}</button>`).join("")}</div>`;
+const segs=(key,list)=>`<div class="seg" role="radiogroup">${list.map(([v,t])=>`<button class="${pk(key,v).trim()}" role="radio" aria-checked="${S[key]==v}" data-k="${key}" data-v="${v}">${t}</button>`).join("")}</div>`;
 
 const STEPS=[
- {q:"지금 몇 살인가요?",h:"한국 나이로 적어주세요.",b:()=>`<div class="stepper"><button data-age="-1" aria-label="한 살 빼기">−</button><div class="v num"><input id="age" class="num" inputmode="numeric" value="${S.age}" aria-label="나이"><small>살</small></div><button data-age="1" aria-label="한 살 더하기">+</button></div>`},
+ {q:"지금 몇 살인가요?",h:"한국 나이로 적어주세요.",b:()=>`<div class="stepper"><button data-age="-1" aria-label="한 살 빼기">−</button><div class="v num${PICK==="age"?" pop":""}"><input id="age" class="num" inputmode="numeric" value="${S.age}" aria-label="나이"><small>살</small></div><button data-age="1" aria-label="한 살 더하기">+</button></div>`},
  {q:"군 복무가 남아 있나요?",h:"미필이면 수련을 받든 안 받든 3년이 빠져요. 순서만 달라요.",b:()=>opts("mil",[[3,"남아 있어요","공보의·군의관 3년"],[0,"해결했어요","면제, 여성, 복무 완료"]])},
  {q:"인턴 1년이 남아 있나요?",h:"수련을 안 받으면 인턴도 안 하니 이 1년도 아낄 수 있어요.",b:()=>opts("intern",[[1,"남아 있어요","수련 경로에 1년 추가"],[0,"이미 마쳤어요",""]])},
- {q:"어느 과를 생각하나요?",h:"레지던트 기간과 평균 소득이 자동으로 들어가요.",b:()=>`<div class="depts" role="radiogroup">${DEPTS.map(([n,,y])=>`<button role="radio" aria-checked="${S.dept===n}" data-k="dept" data-v="${n}">${n}${y===3?`<span>3년</span>`:""}</button>`).join("")}</div>`},
+ {q:"어느 과를 생각하나요?",h:"레지던트 기간과 평균 소득이 자동으로 들어가요.",b:()=>`<div class="depts" role="radiogroup">${DEPTS.map(([n,,y])=>`<button class="${pk("dept",n).trim()}" role="radio" aria-checked="${S.dept===n}" data-k="dept" data-v="${n}">${n}${y===3?`<span>3년</span>`:""}</button>`).join("")}</div>`},
  {q:"펠로우는 몇 년 할 건가요?",h:"전문의 취득 뒤 임상강사 기간이에요.",b:()=>opts("fellow",[[0,"안 해요",""],[1,"1년",""],[2,"2년",""]])},
  {q:"한 달에 얼마씩 모을까요?",h:"평균 소득에서 세금을 빼고 절반을 모은다고 보고 채워 뒀어요. 생각해 둔 금액이 있으면 바꿔주세요. 군 복무 중에는 양쪽 다 0원으로 봐요.",b:()=>`
    <div class="field"><label>수련 안 받으면 (GP)<span class="hint">세후 월 저축</span></label><span class="in"><input class="num" id="mGP" inputmode="numeric" value="${S.mGP}"><span class="u">만원</span></span></div>
@@ -212,60 +233,62 @@ const STEPS=[
 // ---------- 화면 ----------
 function render(){
   const a=document.getElementById("app");
-  if(view==="r"){a.innerHTML=result();bindResult();return;}
+  if(view==="r"){a.innerHTML=result();bindResult();if(REVEAL){REVEAL=false;countUp();}PICK=null;return;}
   const st=STEPS[step], n=STEPS.length;
   a.innerHTML=`<div class="top">${step?`<button class="back" id="prev">${ic.back}이전</button>`:`<span class="brand">수련 기회비용 계산기</span>`}<span class="count num">${step+1} / ${n}</span></div>
     <div class="bar"><i style="width:${(step+1)/n*100}%"></i></div>
-    <div class="q"><h1>${st.q}</h1><p>${st.h}</p></div>${st.b()}
+    <div class="stage ${ENTER}"><div class="q"><h1>${st.q}</h1><p>${st.h}</p></div>${st.b()}</div>
     <div class="foot"><button class="primary" id="next">${step===n-1?"결과 보기":"다음"}</button>${step<n-1?`<button class="skip" id="skip">나머지는 기본값으로 결과 보기</button>`:""}</div>`;
+  ENTER="";PICK=null;
   bindQ();
 }
 const clampAge=v=>Math.min(60,Math.max(20,Math.round(v)||29));
 function bindQ(){
   const a=document.getElementById("app");
-  a.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const k=b.dataset.k;let v=b.dataset.v;S[k]=isNaN(+v)?v:+v;
+  a.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const k=b.dataset.k;let v=b.dataset.v;S[k]=isNaN(+v)?v:+v;tap();PICK=k+"="+v;
     if(k==="dept"){const d=deptOf(v);S.resid=d[2];S.mSP=defMonthly(d[1]);}
     render();});
-  a.querySelectorAll("[data-age]").forEach(b=>b.onclick=()=>{S.age=clampAge(S.age+ +b.dataset.age);render();});
+  a.querySelectorAll("[data-age]").forEach(b=>b.onclick=()=>{S.age=clampAge(S.age+ +b.dataset.age);tap();PICK="age";render();});
   const ag=document.getElementById("age");
   if(ag){ag.oninput=()=>{const v=+ag.value.replace(/[^\d]/g,"");if(v)S.age=v;};ag.onblur=()=>{S.age=clampAge(S.age);ag.value=S.age;};}
   ["mGP","mSP","mTR"].forEach(id=>{const e=document.getElementById(id);if(e)e.oninput=()=>{S[id]=+e.value.replace(/[^\d]/g,"")||0;}});
   const go=()=>{S.age=clampAge(S.age);};
-  document.getElementById("next").onclick=()=>{go();if(step<STEPS.length-1){step++;render();}else{view="r";render();scrollTo(0,0);}};
-  const sk=document.getElementById("skip");if(sk)sk.onclick=()=>{go();view="r";render();scrollTo(0,0);};
-  const pv=document.getElementById("prev");if(pv)pv.onclick=()=>{go();if(step){step--;render();}};
+  document.getElementById("next").onclick=()=>{go();tap();if(step<STEPS.length-1){step++;ENTER="fwd";render();}else{view="r";REVEAL=true;render();scrollTo(0,0);}};
+  const sk=document.getElementById("skip");if(sk)sk.onclick=()=>{go();tap();view="r";REVEAL=true;render();scrollTo(0,0);};
+  const pv=document.getElementById("prev");if(pv)pv.onclick=()=>{go();tap();if(step){step--;ENTER="back";render();}};
 }
 
 function trainLabel(){const p=[];if(S.intern)p.push("인턴 "+S.intern);p.push("레지던트 "+S.resid);if(S.fellow)p.push("펠로우 "+S.fellow);return p.join(" · ");}
 
 function result(){
   const M=model(), c=M.cross, yrs=c?Math.round(M.catchY):null;
-  const head=`${eok(M.cost)}<small>억</small><span class="pay">${c?`, 회수까지 <b>${yrs}년</b>`:`, 회수 못 함`}</span>`;
+  const cn=v=>`<span class="cnt" data-v="${v}">${v}</span>`;
+  const head=`${cn(eok(M.cost))}<small>억</small><span class="pay">${c?`, 회수까지 <b>${cn(yrs)}년</b>`:`, 회수 못 함`}</span>`;
   const say=c?`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b> 더 모아요. 전문의가 되면 매달 더 모아서 이 차이를 <b class="num">${yrs}년</b> 만에 메워요.`
              :`수련 ${M.trainY}년 동안 GP가 <b class="num">${eok(M.cost)}억</b> 더 모아요. 전문의가 된 뒤에도 이 차이를 메우지 못해요.`;
   const d65=M.at65?M.at65.p-M.at65.g:null;
   const line65=d65==null?"":(d65>=0?`65살에는 전문의가 <b class="num">${eok(d65)}억</b> 앞서요.`:`65살에도 GP가 <b class="num">${eok(-d65)}억</b> 앞서요.`);
   const why=S.mSP<=S.mGP?`전문의 월 저축(${man(S.mSP)}만)이 GP(${man(S.mGP)}만)보다 많지 않아서 차이가 줄어들지 않아요.`:`${MAXAGE}살까지 계산해도 따라잡지 못해요.`;
-  return `<div class="top"><span class="brand">수련 기회비용 계산기</span><button class="back" id="restart">처음부터</button></div>
-  <div class="res">
+  return `<div class="${REVEAL?"reveal":""}"><div class="top"><span class="brand">수련 기회비용 계산기</span><button class="back" id="restart">처음부터</button></div>
+  <div class="res${REVEAL?"":""}">
     <div class="lab">수련의 기회비용</div>
     <div class="big num">${head}</div>
     <p class="say">${say} <span class="m">(${trainLabel()}${S.mil?" · 군 복무는 양쪽 다 3년":""})</span></p>
     <div class="hr"></div>
     <div class="lab">전문의가 GP를 앞서는 나이</div>
-    <div class="big num">${c?c.age.toFixed(1)+"<small>살</small>":"없음"}</div>
+    <div class="big num">${c?cn(c.age.toFixed(1))+"<small>살</small>":"없음"}</div>
     ${c?`<p class="say">이때부터 전문의가 모은 돈이 GP보다 많아지고, 차이는 계속 벌어져요.${line65?" "+line65:""}</p>`:`${line65?`<p class="say">${line65}</p>`:""}<div class="verdict bad">${why}</div>`}
     <p class="say m" style="margin-top:12px;font-size:14px">월 저축 · GP <b class="num">${man(S.mGP)}만</b> / 전문의(${S.dept}) <b class="num">${man(S.mSP)}만</b> · 수련 중 <b class="num">${man(S.mTR)}만</b> · 수익률 연 ${S.r}%${S.mil?"<br>군 복무 중 저축은 양쪽 다 0원으로 봐요.":""}</p>
   </div>
   <div class="hr"></div>
   <div class="legend"><span><i style="background:var(--gp)"></i>GP</span><span><i style="background:var(--sp)"></i>전문의</span></div>
-  <div class="chart">${chart(M)}</div>
+  <div class="chart${REVEAL?" draw":""}">${chart(M)}</div>
   <div class="hr" style="margin:20px 0"></div>
   <div class="tune"><div class="row"><span>수익률</span>${segs("r",[[5,"5%"],[7,"7%"],[9,"9%"]])}</div></div>
   <div class="hr" style="margin:20px 0 0"></div>
   <details id="tbl"><summary>나이별로 보기${ic.down}</summary><div class="tbl">${table(M)}</div></details>
   <p class="note">계산 방법: 기본 월 저축은 평균 연소득에서 종합소득세를 단순 적용해 뺀 뒤 절반을 모은다고 본 값이에요. 수련 중 저축은 입력한 금액(기본 100만원), 군 복무 중 저축 0원, 매달 말 적립, 연 수익률을 월 복리로 환산했어요. 물가는 반영하지 않은 명목 금액이고, 평균값이라 실제와 다를 수 있어요. 투자 조언이 아닙니다.</p>
-  <div class="foot"><button class="primary" id="save">이미지로 저장</button><button class="skip" id="link">링크 복사</button></div>`;
+  <div class="foot"><button class="primary" id="save">이미지로 저장</button><button class="skip" id="link">링크 복사</button></div></div>`;
 }
 
 function chart(M){
@@ -278,10 +301,10 @@ function chart(M){
   const tk=(endAge-S.age)>30?10:5;
   for(let a=Math.ceil(S.age/tk)*tk;a<=endAge;a+=tk){s+=`<text x="${x((a-S.age)*12)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--faint)">${a}살</text>`;}
   const path=a=>{let d="";for(let m=0;m<=n;m+=Math.max(1,Math.floor(n/200)))d+=(d?"L":"M")+x(m).toFixed(1)+" "+y(a[m]).toFixed(1);return d+"L"+x(n).toFixed(1)+" "+y(a[n]).toFixed(1)};
-  s+=`<path d="${path(M.gp)}" fill="none" stroke="var(--gp)" stroke-width="2"/><path d="${path(M.sp)}" fill="none" stroke="var(--sp)" stroke-width="2.4"/>`;
+  s+=`<path class="ln" pathLength="1" d="${path(M.gp)}" fill="none" stroke="var(--gp)" stroke-width="2"/><path class="ln" pathLength="1" d="${path(M.sp)}" fill="none" stroke="var(--sp)" stroke-width="2.4"/>`;
   if(M.cross){const cx=x(M.cross.m),cy=y(M.cross.val);
-    s+=`<line x1="${cx}" x2="${cx}" y1="${cy}" y2="${H-B}" stroke="var(--ink)" stroke-dasharray="2 3" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="4" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.6"/>
-    <text x="${cx-6}" y="${cy-10}" text-anchor="end" font-size="11" font-weight="700" fill="var(--ink)">${M.cross.age.toFixed(1)}살</text>`;}
+    s+=`<g class="xmark"><line x1="${cx}" x2="${cx}" y1="${cy}" y2="${H-B}" stroke="var(--ink)" stroke-dasharray="2 3" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="4" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.6"/>
+    <text x="${cx-6}" y="${cy-10}" text-anchor="end" font-size="11" font-weight="700" fill="var(--ink)">${M.cross.age.toFixed(1)}살</text></g>`;}
   let ya=y(M.gp[n]),yb=y(M.sp[n]);if(Math.abs(ya-yb)<13){if(ya<yb){ya-=6;yb+=6}else{ya+=6;yb-=6}}
   s+=`<text x="${W-R+5}" y="${ya+4}" font-size="11" font-weight="700" fill="var(--gp)">${eok(M.gp[n])}억</text><text x="${W-R+5}" y="${yb+4}" font-size="11" font-weight="700" fill="var(--sp)">${eok(M.sp[n])}억</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="나이별 누적 자산">${s}</svg>`;
@@ -300,7 +323,7 @@ function table(M){
   return h+"</table>";
 }
 function bindResult(){
-  document.querySelectorAll("#app [data-k]").forEach(b=>b.onclick=()=>{S[b.dataset.k]=+b.dataset.v;keep();});
+  document.querySelectorAll("#app [data-k]").forEach(b=>b.onclick=()=>{S[b.dataset.k]=+b.dataset.v;tap();PICK=b.dataset.k+"="+b.dataset.v;keep();});
   document.getElementById("restart").onclick=()=>{view="q";step=0;render();scrollTo(0,0);};
   document.getElementById("save").onclick=e=>saveImage(e.currentTarget);
   document.getElementById("link").onclick=async e=>{const b=e.currentTarget,u=location.href.split("#")[0]+"#"+enc();
@@ -309,6 +332,16 @@ function bindResult(){
 }
 function keep(){const y=scrollY,open=document.getElementById("tbl").open;render();document.getElementById("tbl").open=open;scrollTo(0,y);}
 
+
+// ---------- 결과 숫자 올라가기 ----------
+function countUp(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const els=[...document.querySelectorAll(".cnt")],t0=performance.now(),D=700;
+  const meta=els.map(e=>{const s=e.dataset.v;return{e,v:parseFloat(s),d:(s.split(".")[1]||"").length};});
+  const tick=t=>{const k=Math.min(1,(t-t0)/D),f=1-Math.pow(1-k,3);
+    meta.forEach(({e,v,d})=>e.textContent=(v*f).toFixed(d));if(k<1)requestAnimationFrame(tick);};
+  requestAnimationFrame(tick);
+}
 
 // ---------- 결과 이미지 저장 ----------
 function wrapLines(ctx,text,maxW){const out=[];let line="";for(const ch of text){const t=line+ch;if(ctx.measureText(t).width>maxW&&line){out.push(line);line=ch.trimStart();}else line=t;}if(line)out.push(line);return out;}
@@ -365,7 +398,7 @@ function dec(h){const p=new URLSearchParams(h.replace(/^#/,""));
   if(p.has("s")){const s=p.get("s");if(s[0]==="r")view="r";else step=+s;}
   if(p.has("age")&&!p.has("s"))view="r";
   return p.get("s");}
-const s0=dec(location.hash); render();
+const s0=dec(location.hash); if(view==="r")REVEAL=true; render();
 if(s0==="rb"){const t=document.getElementById("tbl");t.open=true;document.querySelector(".chart").scrollIntoView();}
 </script>
 </body>
